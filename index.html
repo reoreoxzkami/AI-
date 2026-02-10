@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>かんたん画像編集アプリ</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header>
+        <h1>かんたん画像編集アプリ</h1>
+        <p>画像をアップロードして、明るさ・コントラスト・ぼかしなどを調整できます。</p>
+      </header>
+
+      <section class="controls">
+        <label class="file-input">
+          画像を選択
+          <input type="file" id="upload" accept="image/*" />
+        </label>
+
+        <div class="slider-group">
+          <label>明るさ <span id="brightnessValue">100</span>%
+            <input type="range" id="brightness" min="0" max="200" value="100" />
+          </label>
+
+          <label>コントラスト <span id="contrastValue">100</span>%
+            <input type="range" id="contrast" min="0" max="200" value="100" />
+          </label>
+
+          <label>ぼかし <span id="blurValue">0</span>px
+            <input type="range" id="blur" min="0" max="10" value="0" />
+          </label>
+
+          <label>グレースケール <span id="grayscaleValue">0</span>%
+            <input type="range" id="grayscale" min="0" max="100" value="0" />
+          </label>
+        </div>
+
+        <div class="button-row">
+          <button id="rotateLeft" type="button">↺ 左回転</button>
+          <button id="rotateRight" type="button">↻ 右回転</button>
+          <button id="flipHorizontal" type="button">↔ 横反転</button>
+          <button id="flipVertical" type="button">↕ 縦反転</button>
+          <button id="reset" type="button">リセット</button>
+          <button id="download" type="button">画像を保存</button>
+        </div>
+      </section>
+
+      <section class="editor">
+        <canvas id="canvas" width="800" height="500" aria-label="編集プレビュー"></canvas>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
