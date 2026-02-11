@@ -50,6 +50,18 @@ p {
   gap: 14px;
 }
 
+.upload-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .file-input {
   display: inline-flex;
   align-items: center;
@@ -64,6 +76,13 @@ p {
 
 .file-input input {
   display: none;
+}
+
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .slider-group {
@@ -99,6 +118,19 @@ button {
 
 button:hover {
   border-color: var(--accent);
+}
+
+button[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editor {
+  position: relative;
+}
+
+.editor.dragover {
+  outline: 3px solid #90abff;
 }
 
 canvas {
