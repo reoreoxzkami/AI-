@@ -3,14 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>かんたん画像編集アプリ</title>
+    <meta name="theme-color" content="#2e6cff" />
+    <meta name="description" content="ブラウザで画像を編集できるPWA対応アプリ" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="styles.css" />
+    <title>PhotoFlow - 画像編集アプリ</title>
   </head>
   <body>
     <main class="app">
-      <header>
-        <h1>かんたん画像編集アプリ</h1>
-        <p>画像をアップロードして、色味調整・回転反転・プリセット編集ができます。</p>
+      <header class="app-header">
+        <div>
+          <h1>PhotoFlow</h1>
+          <p>ブラウザだけで使える本格画像編集アプリ（PWA対応）</p>
+        </div>
+        <button id="installApp" class="secondary" type="button" hidden>アプリをインストール</button>
       </header>
 
       <section class="controls">
@@ -28,50 +35,59 @@
           <button class="preset" data-preset="mono" type="button">Mono</button>
           <button class="preset" data-preset="warm" type="button">Warm</button>
           <button class="preset" data-preset="cool" type="button">Cool</button>
+          <button class="preset" data-preset="cinematic" type="button">Cinematic</button>
         </div>
 
         <div class="slider-group">
           <label>明るさ <span id="brightnessValue">100</span>%
             <input type="range" id="brightness" min="0" max="200" value="100" />
           </label>
-
           <label>コントラスト <span id="contrastValue">100</span>%
             <input type="range" id="contrast" min="0" max="200" value="100" />
           </label>
-
           <label>ぼかし <span id="blurValue">0</span>px
             <input type="range" id="blur" min="0" max="10" value="0" />
           </label>
-
           <label>グレースケール <span id="grayscaleValue">0</span>%
             <input type="range" id="grayscale" min="0" max="100" value="0" />
           </label>
-
           <label>彩度 <span id="saturateValue">100</span>%
             <input type="range" id="saturate" min="0" max="250" value="100" />
           </label>
-
           <label>色相回転 <span id="hueRotateValue">0</span>°
             <input type="range" id="hueRotate" min="0" max="360" value="0" />
+          </label>
+          <label>セピア <span id="sepiaValue">0</span>%
+            <input type="range" id="sepia" min="0" max="100" value="0" />
+          </label>
+          <label>反転 <span id="invertValue">0</span>%
+            <input type="range" id="invert" min="0" max="100" value="0" />
           </label>
         </div>
 
         <div class="button-row">
           <button id="undo" type="button">↶ Undo</button>
           <button id="redo" type="button">↷ Redo</button>
-          <button id="compare" type="button">比較表示</button>
+          <button id="compare" type="button">比較表示(押している間)</button>
           <button id="rotateLeft" type="button">↺ 左回転</button>
           <button id="rotateRight" type="button">↻ 右回転</button>
           <button id="flipHorizontal" type="button">↔ 横反転</button>
           <button id="flipVertical" type="button">↕ 縦反転</button>
           <button id="reset" type="button">リセット</button>
-          <button id="download" type="button">画像を保存</button>
+          <button id="download" type="button">PNG保存</button>
+          <button id="downloadJpeg" type="button">JPEG保存</button>
         </div>
+
+        <p class="shortcut">ショートカット: <kbd>Ctrl/Cmd+Z</kbd> Undo / <kbd>Ctrl/Cmd+Shift+Z</kbd> Redo / <kbd>R</kbd> 右回転 / <kbd>F</kbd> 横反転</p>
       </section>
 
-      <section class="editor">
-        <canvas id="canvas" width="800" height="500" aria-label="編集プレビュー"></canvas>
+      <section class="editor" aria-live="polite">
+        <canvas id="canvas" width="900" height="520" aria-label="編集プレビュー"></canvas>
       </section>
+
+      <footer class="status-bar">
+        <span id="statusText">準備完了</span>
+      </footer>
     </main>
 
     <script src="app.js"></script>

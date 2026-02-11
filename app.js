@@ -3,20 +3,22 @@ const ctx = canvas.getContext("2d");
 
 const uploadInput = document.getElementById("upload");
 const editorSection = document.querySelector(".editor");
+const statusText = document.getElementById("statusText");
+const installButton = document.getElementById("installApp");
 
-const brightnessInput = document.getElementById("brightness");
-const contrastInput = document.getElementById("contrast");
-const blurInput = document.getElementById("blur");
-const grayscaleInput = document.getElementById("grayscale");
-const saturateInput = document.getElementById("saturate");
-const hueRotateInput = document.getElementById("hueRotate");
+const controlKeys = [
+  "brightness",
+  "contrast",
+  "blur",
+  "grayscale",
+  "saturate",
+  "hueRotate",
+  "sepia",
+  "invert",
+];
 
-const brightnessValue = document.getElementById("brightnessValue");
-const contrastValue = document.getElementById("contrastValue");
-const blurValue = document.getElementById("blurValue");
-const grayscaleValue = document.getElementById("grayscaleValue");
-const saturateValue = document.getElementById("saturateValue");
-const hueRotateValue = document.getElementById("hueRotateValue");
+const controls = Object.fromEntries(controlKeys.map((key) => [key, document.getElementById(key)]));
+const values = Object.fromEntries(controlKeys.map((key) => [key, document.getElementById(`${key}Value`)]));
 
 const undoButton = document.getElementById("undo");
 const redoButton = document.getElementById("redo");
@@ -27,36 +29,54 @@ const flipHorizontalButton = document.getElementById("flipHorizontal");
 const flipVerticalButton = document.getElementById("flipVertical");
 const resetButton = document.getElementById("reset");
 const downloadButton = document.getElementById("download");
+const downloadJpegButton = document.getElementById("downloadJpeg");
 const presetButtons = document.querySelectorAll(".preset");
+
+const defaultState = {
+  brightness: 100,
+  contrast: 100,
+  blur: 0,
+  grayscale: 0,
+  saturate: 100,
+  hueRotate: 0,
+  sepia: 0,
+  invert: 0,
+  rotation: 0,
+  flipX: 1,
+  flipY: 1,
+};
 
 const state = {
   image: null,
-  brightness: 100,
-  contrast: 100,
-  blur: 0,
-  grayscale: 0,
-  saturate: 100,
-  hueRotate: 0,
-  rotation: 0,
-  flipX: 1,
-  flipY: 1,
+  ...defaultState,
   compare: false,
-};
-
-const defaultAdjustments = {
-  brightness: 100,
-  contrast: 100,
-  blur: 0,
-  grayscale: 0,
-  saturate: 100,
-  hueRotate: 0,
-  rotation: 0,
-  flipX: 1,
-  flipY: 1,
 };
 
 const history = [];
 const redoStack = [];
+let installPromptEvent = null;
+
+function setStatus(text) {
+  statusText.textContent = text;
+}
+
+function saveSettings() {
+  const persisted = Object.fromEntries(controlKeys.map((key) => [key, state[key]]));
+  localStorage.setItem("photoFlowSettings", JSON.stringify(persisted));
+}
+
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem("photoFlowSettings");
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    for (const key of controlKeys) {
+      if (typeof parsed[key] === "number") state[key] = parsed[key];
+    }
+  } catch {
+    setStatus("設定の読み込みに失敗したため初期値を利用します");
+  }
+}
 
 function snapshot() {
   return {
@@ -66,6 +86,8 @@ function snapshot() {
     grayscale: state.grayscale,
     saturate: state.saturate,
     hueRotate: state.hueRotate,
+    sepia: state.sepia,
+    invert: state.invert,
     rotation: state.rotation,
     flipX: state.flipX,
     flipY: state.flipY,
@@ -73,27 +95,17 @@ function snapshot() {
 }
 
 function applySnapshot(data) {
-  state.brightness = data.brightness;
-  state.contrast = data.contrast;
-  state.blur = data.blur;
-  state.grayscale = data.grayscale;
-  state.saturate = data.saturate;
-  state.hueRotate = data.hueRotate;
-  state.rotation = data.rotation;
-  state.flipX = data.flipX;
-  state.flipY = data.flipY;
-
+  Object.assign(state, data);
   syncInputsWithState();
   updateValueLabels();
+  saveSettings();
   drawImage();
 }
 
 function pushHistory() {
   if (!state.image) return;
   history.push(snapshot());
-  if (history.length > 30) {
-    history.shift();
-  }
+  if (history.length > 40) history.shift();
   redoStack.length = 0;
   updateUndoRedoButtons();
 }
@@ -104,21 +116,21 @@ function updateUndoRedoButtons() {
 }
 
 function syncInputsWithState() {
-  brightnessInput.value = state.brightness;
-  contrastInput.value = state.contrast;
-  blurInput.value = state.blur;
-  grayscaleInput.value = state.grayscale;
-  saturateInput.value = state.saturate;
-  hueRotateInput.value = state.hueRotate;
+  for (const key of controlKeys) {
+    controls[key].value = state[key];
+  }
+}
+
+function formatValue(key, num) {
+  if (key === "blur") return `${num}`;
+  if (key === "hueRotate") return `${num}`;
+  return `${num}`;
 }
 
 function updateValueLabels() {
-  brightnessValue.textContent = state.brightness;
-  contrastValue.textContent = state.contrast;
-  blurValue.textContent = state.blur;
-  grayscaleValue.textContent = state.grayscale;
-  saturateValue.textContent = state.saturate;
-  hueRotateValue.textContent = state.hueRotate;
+  for (const key of controlKeys) {
+    values[key].textContent = formatValue(key, state[key]);
+  }
 }
 
 function clearCanvas() {
@@ -128,25 +140,23 @@ function clearCanvas() {
 function drawPlaceholder() {
   clearCanvas();
   ctx.fillStyle = "#4b5f8a";
-  ctx.font = "bold 28px sans-serif";
+  ctx.font = "bold 30px sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText("画像を選択してください", canvas.width / 2, canvas.height / 2);
+  ctx.fillText("画像を選択またはドロップしてください", canvas.width / 2, canvas.height / 2);
 }
 
 function fitCanvasToImage(img) {
-  const maxWidth = 1200;
-  const maxHeight = 800;
+  const maxWidth = 1400;
+  const maxHeight = 1000;
   const ratio = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
   canvas.width = Math.floor(img.width * ratio);
   canvas.height = Math.floor(img.height * ratio);
 }
 
 function getFilterString() {
-  if (state.compare) {
-    return "none";
-  }
+  if (state.compare) return "none";
 
-  return `brightness(${state.brightness}%) contrast(${state.contrast}%) blur(${state.blur}px) grayscale(${state.grayscale}%) saturate(${state.saturate}%) hue-rotate(${state.hueRotate}deg)`;
+  return `brightness(${state.brightness}%) contrast(${state.contrast}%) blur(${state.blur}px) grayscale(${state.grayscale}%) saturate(${state.saturate}%) hue-rotate(${state.hueRotate}deg) sepia(${state.sepia}%) invert(${state.invert}%)`;
 }
 
 function drawImage() {
@@ -156,27 +166,29 @@ function drawImage() {
   }
 
   clearCanvas();
-
   ctx.save();
   ctx.filter = getFilterString();
-
   ctx.translate(canvas.width / 2, canvas.height / 2);
   ctx.rotate((state.rotation * Math.PI) / 180);
   ctx.scale(state.flipX, state.flipY);
-
   ctx.drawImage(state.image, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
   ctx.restore();
 }
 
 function resetAdjustments() {
-  Object.assign(state, defaultAdjustments);
+  Object.assign(state, defaultState);
   syncInputsWithState();
   updateValueLabels();
+  saveSettings();
   drawImage();
+  setStatus("編集内容をリセットしました");
 }
 
 function setImageFromFile(file) {
-  if (!file || !file.type.startsWith("image/")) return;
+  if (!file || !file.type.startsWith("image/")) {
+    setStatus("画像ファイルを選択してください");
+    return;
+  }
 
   const img = new Image();
   img.onload = () => {
@@ -184,8 +196,12 @@ function setImageFromFile(file) {
     fitCanvasToImage(img);
     history.length = 0;
     redoStack.length = 0;
-    resetAdjustments();
+    loadSettings();
+    syncInputsWithState();
+    updateValueLabels();
+    drawImage();
     updateUndoRedoButtons();
+    setStatus(`${file.name} を読み込みました`);
   };
   img.src = URL.createObjectURL(file);
 }
@@ -194,84 +210,125 @@ function applyPreset(name) {
   if (!state.image) return;
   pushHistory();
 
-  if (name === "vivid") {
-    state.brightness = 110;
-    state.contrast = 120;
-    state.saturate = 145;
-    state.hueRotate = 5;
-    state.grayscale = 0;
-    state.blur = 0;
-  }
+  const presets = {
+    vivid: { brightness: 110, contrast: 125, saturate: 150, hueRotate: 5, grayscale: 0, sepia: 0, invert: 0, blur: 0 },
+    mono: { brightness: 105, contrast: 110, saturate: 0, hueRotate: 0, grayscale: 100, sepia: 0, invert: 0, blur: 0 },
+    warm: { brightness: 108, contrast: 108, saturate: 120, hueRotate: 330, grayscale: 0, sepia: 14, invert: 0, blur: 0 },
+    cool: { brightness: 98, contrast: 112, saturate: 115, hueRotate: 25, grayscale: 0, sepia: 0, invert: 0, blur: 0 },
+    cinematic: { brightness: 96, contrast: 128, saturate: 92, hueRotate: 350, grayscale: 12, sepia: 24, invert: 0, blur: 0 },
+  };
 
-  if (name === "mono") {
-    state.brightness = 105;
-    state.contrast = 110;
-    state.saturate = 0;
-    state.hueRotate = 0;
-    state.grayscale = 100;
-    state.blur = 0;
-  }
+  const preset = presets[name];
+  if (!preset) return;
 
-  if (name === "warm") {
-    state.brightness = 108;
-    state.contrast = 108;
-    state.saturate = 120;
-    state.hueRotate = 330;
-    state.grayscale = 0;
-    state.blur = 0;
-  }
-
-  if (name === "cool") {
-    state.brightness = 98;
-    state.contrast = 112;
-    state.saturate = 115;
-    state.hueRotate = 25;
-    state.grayscale = 0;
-    state.blur = 0;
-  }
-
+  Object.assign(state, preset);
   syncInputsWithState();
   updateValueLabels();
+  saveSettings();
   drawImage();
+  setStatus(`プリセット ${name} を適用しました`);
 }
 
-uploadInput.addEventListener("change", (event) => {
-  const file = event.target.files?.[0];
-  setImageFromFile(file);
-});
+function download(format) {
+  if (!state.image) return;
+  const link = document.createElement("a");
+  const ext = format === "image/jpeg" ? "jpg" : "png";
+  link.download = `edited-image.${ext}`;
+  link.href = canvas.toDataURL(format, 0.92);
+  link.click();
+  setStatus(`${ext.toUpperCase()} で保存しました`);
+}
+
+function setupCompareButton() {
+  const activate = () => {
+    if (!state.image) return;
+    state.compare = true;
+    drawImage();
+  };
+  const deactivate = () => {
+    if (!state.image) return;
+    state.compare = false;
+    drawImage();
+  };
+
+  compareButton.addEventListener("pointerdown", activate);
+  compareButton.addEventListener("pointerup", deactivate);
+  compareButton.addEventListener("pointerleave", deactivate);
+  compareButton.addEventListener("pointercancel", deactivate);
+}
+
+function setupKeyboardShortcuts() {
+  document.addEventListener("keydown", (event) => {
+    const ctrlOrCmd = event.ctrlKey || event.metaKey;
+
+    if (ctrlOrCmd && !event.shiftKey && event.key.toLowerCase() === "z") {
+      event.preventDefault();
+      undoButton.click();
+    }
+
+    if (ctrlOrCmd && event.shiftKey && event.key.toLowerCase() === "z") {
+      event.preventDefault();
+      redoButton.click();
+    }
+
+    if (!ctrlOrCmd && event.key.toLowerCase() === "r") {
+      rotateRightButton.click();
+    }
+
+    if (!ctrlOrCmd && event.key.toLowerCase() === "f") {
+      flipHorizontalButton.click();
+    }
+  });
+}
+
+function setupInstallPrompt() {
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    installPromptEvent = event;
+    installButton.hidden = false;
+  });
+
+  installButton.addEventListener("click", async () => {
+    if (!installPromptEvent) return;
+    installPromptEvent.prompt();
+    await installPromptEvent.userChoice;
+    installPromptEvent = null;
+    installButton.hidden = true;
+    setStatus("インストール操作を完了しました");
+  });
+}
+
+function registerServiceWorker() {
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js")
+      .then(() => setStatus("Service Workerを登録しました"))
+      .catch(() => setStatus("Service Worker登録に失敗しました"));
+  }
+}
+
+uploadInput.addEventListener("change", (event) => setImageFromFile(event.target.files?.[0]));
 
 editorSection.addEventListener("dragover", (event) => {
   event.preventDefault();
   editorSection.classList.add("dragover");
 });
-
-editorSection.addEventListener("dragleave", () => {
-  editorSection.classList.remove("dragover");
-});
-
+editorSection.addEventListener("dragleave", () => editorSection.classList.remove("dragover"));
 editorSection.addEventListener("drop", (event) => {
   event.preventDefault();
   editorSection.classList.remove("dragover");
-  const file = event.dataTransfer?.files?.[0];
-  setImageFromFile(file);
+  setImageFromFile(event.dataTransfer?.files?.[0]);
 });
 
-function bindSlider(input, key) {
-  input.addEventListener("input", () => {
+for (const key of controlKeys) {
+  controls[key].addEventListener("input", () => {
     if (!state.image) return;
     pushHistory();
-    state[key] = Number(input.value);
+    state[key] = Number(controls[key].value);
     updateValueLabels();
+    saveSettings();
     drawImage();
   });
 }
-
-bindSlider(brightnessInput, "brightness");
-bindSlider(contrastInput, "contrast");
-bindSlider(blurInput, "blur");
-bindSlider(grayscaleInput, "grayscale");
-bindSlider(saturateInput, "saturate");
-bindSlider(hueRotateInput, "hueRotate");
 
 rotateLeftButton.addEventListener("click", () => {
   if (!state.image) return;
@@ -310,51 +367,30 @@ resetButton.addEventListener("click", () => {
 undoButton.addEventListener("click", () => {
   if (!state.image || history.length === 0) return;
   redoStack.push(snapshot());
-  const previous = history.pop();
-  applySnapshot(previous);
+  applySnapshot(history.pop());
   updateUndoRedoButtons();
 });
 
 redoButton.addEventListener("click", () => {
   if (!state.image || redoStack.length === 0) return;
   history.push(snapshot());
-  const next = redoStack.pop();
-  applySnapshot(next);
+  applySnapshot(redoStack.pop());
   updateUndoRedoButtons();
 });
 
-compareButton.addEventListener("mousedown", () => {
-  if (!state.image) return;
-  state.compare = true;
-  drawImage();
-});
+downloadButton.addEventListener("click", () => download("image/png"));
+downloadJpegButton.addEventListener("click", () => download("image/jpeg"));
 
-compareButton.addEventListener("mouseup", () => {
-  if (!state.image) return;
-  state.compare = false;
-  drawImage();
-});
+presetButtons.forEach((button) => button.addEventListener("click", () => applyPreset(button.dataset.preset)));
 
-compareButton.addEventListener("mouseleave", () => {
-  if (!state.image) return;
-  state.compare = false;
-  drawImage();
-});
+setupCompareButton();
+setupKeyboardShortcuts();
+setupInstallPrompt();
+registerServiceWorker();
 
-presetButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    applyPreset(button.dataset.preset);
-  });
-});
-
-downloadButton.addEventListener("click", () => {
-  if (!state.image) return;
-  const link = document.createElement("a");
-  link.download = "edited-image.png";
-  link.href = canvas.toDataURL("image/png");
-  link.click();
-});
-
+loadSettings();
+syncInputsWithState();
 updateValueLabels();
 updateUndoRedoButtons();
 drawPlaceholder();
+setStatus("準備完了: 画像を選択してください");

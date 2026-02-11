@@ -1,0 +1,17 @@
+{
+  "name": "PhotoFlow 画像編集アプリ",
+  "short_name": "PhotoFlow",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#f3f6fb",
+  "theme_color": "#2e6cff",
+  "description": "ブラウザだけで使えるPWA対応画像編集アプリ",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
